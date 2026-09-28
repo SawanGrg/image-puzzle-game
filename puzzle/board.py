@@ -1,5 +1,4 @@
 import random
-
 import cv2
 
 from puzzle.tile import Tile
@@ -9,40 +8,48 @@ from transformations.flip import FlipTransformation
 
 
 class Board:
-    def __init__(self, grid_size):
+
+    def __init__(self, grid_size: int):
         self.grid_size = grid_size
         self.tiles = []
-        self.original_image = None   # untouched, for the left canvas
+        self.original_image = None
         self.tile_width = 0
         self.tile_height = 0
+        self.transformation_history = []
 
-    # ------------------------------------------------------------------
-    # Loading and slicing
-    # ------------------------------------------------------------------
-
-    def load_image(self, path, target_width=600, target_height=600):
+    def load_image(self, path: str, target_size: int = 360):
         image = cv2.imread(path)
         if image is None:
             raise ValueError(f"Could not read image at {path}")
 
-        image = self._resize_to_fit(image, target_width, target_height)
-        image = self._crop_to_grid(image)
-
+        image = self._resize_and_pad(image, target_size)
         self.original_image = image
         self._slice_into_tiles(image)
 
-    def _resize_to_fit(self, image, target_width, target_height):
+    def _resize_and_pad(self, image, target_size: int):
         h, w = image.shape[:2]
-        scale = min(target_width / w, target_height / h)
+        scale = target_size / max(h, w)
         new_w, new_h = int(w * scale), int(h * scale)
-        return cv2.resize(image, (new_w, new_h))
+        resized = cv2.resize(image, (new_w, new_h))
 
-    def _crop_to_grid(self, image):
-        h, w = image.shape[:2]
-        # crop down to the nearest multiple of grid_size in each dimension
-        new_h = h - (h % self.grid_size)
-        new_w = w - (w % self.grid_size)
-        return image[0:new_h, 0:new_w]
+        delta_w = target_size - new_w
+        delta_h = target_size - new_h
+        top, bottom = delta_h // 2, delta_h - (delta_h // 2)
+        left, right = delta_w // 2, delta_w - (delta_w // 2)
+
+        square_img = cv2.copyMakeBorder(
+            resized,
+            top,
+            bottom,
+            left,
+            right,
+            cv2.BORDER_CONSTANT,
+            value=[0, 0, 0],
+        )
+
+        tile_dim = target_size // self.grid_size
+        final_dim = tile_dim * self.grid_size
+        return square_img[:final_dim, :final_dim]
 
     def _slice_into_tiles(self, image):
         h, w = image.shape[:2]
@@ -55,47 +62,43 @@ class Board:
             for col in range(self.grid_size):
                 y0 = row * self.tile_height
                 x0 = col * self.tile_width
-                piece = image[y0:y0 + self.tile_height, x0:x0 + self.tile_width]
+                piece = image[
+                    y0 : y0 + self.tile_height, x0 : x0 + self.tile_width
+                ]
                 position = row * self.grid_size + col
                 self.tiles.append(Tile(piece, position, tile_id))
                 tile_id += 1
 
-    # ------------------------------------------------------------------
-    # Scrambling
-    # ------------------------------------------------------------------
-
     def scramble(self):
-        transformation_count = {3: 6, 4: 12, 5: 20}[self.grid_size]
-        transformation_types = [SwapTransformation, RotateTransformation, FlipTransformation]
+        total_moves = {3: 6, 4: 12, 5: 20}[self.grid_size]
+        total_tiles = self.grid_size * self.grid_size
+
+        max_swaps = min(total_tiles - total_moves, total_moves - 2)
+        num_swaps = random.randint(1, max(1, max_swaps))
+
+        remaining = total_moves - num_swaps
+        num_rotates = random.randint(1, remaining - 1)
+        num_flips = remaining - num_rotates
+
+        swaps = [SwapTransformation() for _ in range(num_swaps)]
+        singles = [RotateTransformation() for _ in range(num_rotates)] + [
+            FlipTransformation() for _ in range(num_flips)
+        ]
+        random.shuffle(singles)
+        plan = swaps + singles
 
         untouched = list(self.tiles)
-        applied = 0
+        self.transformation_history = []
 
-        while applied < transformation_count and len(untouched) >= 1:
-            transformation_cls = random.choice(transformation_types)
-            transformation = transformation_cls()
-
-            # SwapTransformation needs 2 untouched tiles; skip it if only 1 remains
-            if isinstance(transformation, SwapTransformation) and len(untouched) < 2:
-                continue
-
-            pool = untouched if not isinstance(transformation, SwapTransformation) else untouched
-            result = transformation.apply(pool)
-
+        for trans in plan:
+            result = trans.apply(untouched)
             touched = result if isinstance(result, tuple) else (result,)
             for tile in touched:
-                if tile in untouched:
-                    untouched.remove(tile)
-
-            applied += 1
-
-    # ------------------------------------------------------------------
-    # Reassembly and lookup
-    # ------------------------------------------------------------------
+                untouched.remove(tile)
+            self.transformation_history.append(trans)
 
     def reassemble(self):
         canvas = self.original_image.copy()
-        # sort by current_position so we place each tile where it NOW sits
         by_position = sorted(self.tiles, key=lambda t: t.current_position)
 
         for tile in by_position:
@@ -103,11 +106,13 @@ class Board:
             col = tile.current_position % self.grid_size
             y0 = row * self.tile_height
             x0 = col * self.tile_width
-            canvas[y0:y0 + self.tile_height, x0:x0 + self.tile_width] = tile.get_display_image()
+            canvas[y0 : y0 + self.tile_height, x0 : x0 + self.tile_width] = (
+                tile.get_display_image()
+            )
 
         return canvas
 
-    def get_tile_at(self, x, y):
+    def get_tile_at(self, x: int, y: int):
         if x < 0 or y < 0:
             return None
         col = x // self.tile_width
@@ -126,12 +131,16 @@ class Board:
             tile_a.current_position,
         )
 
-    def is_solved(self):
+    def is_solved(self) -> bool:
         return all(tile.is_correct() for tile in self.tiles)
 
-    def incorrect_count(self):
+    def incorrect_count(self) -> int:
         return sum(1 for tile in self.tiles if not tile.is_correct())
 
     def solve(self):
+        for trans in reversed(self.transformation_history):
+            trans.undo()
+        self.transformation_history.clear()
+
         for tile in self.tiles:
             tile.reset()
