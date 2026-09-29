@@ -509,7 +509,7 @@ class GUI:
         if tile is None:
             return
 
-        tile.apply_flip()
+        tile.apply_flip(horizontal=True)
         self.game_state.register_move()
         self.render()
 
