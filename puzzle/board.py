@@ -113,10 +113,13 @@ class Board:
         return canvas
 
     def get_tile_at(self, x: int, y: int):
+        if self.tile_width <= 0 or self.tile_height <= 0:
+            return None
         if x < 0 or y < 0:
             return None
         col = x // self.tile_width
         row = y // self.tile_height
+
         if row >= self.grid_size or col >= self.grid_size:
             return None
         position = row * self.grid_size + col
