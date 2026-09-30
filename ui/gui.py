@@ -343,6 +343,7 @@ class GUI:
         self.puzzle_canvas.pack(padx=40, pady=20)
 
         self.puzzle_canvas.bind("<Button-1>", self.on_puzzle_click)
+        self.puzzle_canvas.bind("<Button-2>", self.on_puzzle_right_click)
         self.puzzle_canvas.bind("<Button-3>", self.on_puzzle_right_click)
         self.puzzle_canvas.bind("<Shift-Button-1>", self.on_puzzle_shift_click)
 
@@ -508,7 +509,7 @@ class GUI:
             # input is now locked, so disable the tile tools as well
             for btn in self.tile_buttons:
                 btn.config(state="disabled")
-            messagebox.showinfo("Solved!", "You restored the picture! Load a new image to keep playing.")
+            messagebox.showinfo("Solved!", "You restored the picture! Load a new image to keep playing.",parent=self.root) 
 
     # ------------------------------------------------------------------
     # Click handling
@@ -604,6 +605,15 @@ class GUI:
         self.render()
 
     def solve_puzzle(self):
+        if self.game_state.input_locked or self.board.is_solved():
+            return
+
         self.board.solve()
-        self.game_state.reset()
+        self.game_state.lock_input()
         self.render()
+
+        messagebox.showinfo(
+            "Solved!",
+            "Puzzle has been automatically restored.",
+            parent=self.root,
+        )
