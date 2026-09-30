@@ -15,7 +15,7 @@ class GUI:
         self.root = root
 
         self.root.title("Image Puzzle Game")
-        self.root.geometry("1000x700")
+        self.root.geometry("1000x760")
         self.root.configure(bg=Styles.BG)
         self.root.resizable(True, True)
 
@@ -29,6 +29,9 @@ class GUI:
         # must keep references or Tkinter garbage-collects the images
         self.original_photo = None
         self.puzzle_photo = None
+
+        # rotate/flip buttons for the selected tile (built in show_game_screen)
+        self.tile_buttons = []
 
         self.show_welcome_screen()
 
@@ -343,6 +346,37 @@ class GUI:
         self.puzzle_canvas.bind("<Button-3>", self.on_puzzle_right_click)
         self.puzzle_canvas.bind("<Shift-Button-1>", self.on_puzzle_shift_click)
 
+        # --- tools for the currently selected tile ---
+        tile_tools = tk.Frame(main_frame, bg=Styles.BG)
+        tile_tools.pack(fill="x", pady=(15, 0))
+
+        tk.Label(
+            tile_tools,
+            text="Selected tile:",
+            font=Styles.LABEL_FONT,
+            bg=Styles.BG,
+            fg=Styles.MUTED
+        ).pack(side="left", padx=(5, 10))
+
+        self.tile_buttons = []
+        tool_specs = [
+            ("⟲ Rotate Left", lambda: self.rotate_selected(-90)),
+            ("⟳ Rotate Right", lambda: self.rotate_selected(90)),
+            ("⇆ Flip Horizontal", lambda: self.flip_selected(horizontal=True)),
+            ("⇅ Flip Vertical", lambda: self.flip_selected(vertical=True)),
+        ]
+        for text, command in tool_specs:
+            btn = tk.Button(
+                tile_tools,
+                text=text,
+                font=Styles.SMALL_FONT,
+                width=16,
+                state="disabled",
+                command=command
+            )
+            btn.pack(side="left", padx=5)
+            self.tile_buttons.append(btn)
+
         controls = tk.Frame(main_frame, bg=Styles.BG)
         controls.pack(fill="x", pady=(20, 0))
 
@@ -438,6 +472,15 @@ class GUI:
                 outline="#3498db", width=3
             )
 
+        # rotate/flip buttons only work when a tile is selected
+        tools_state = (
+            "normal"
+            if selected is not None and not self.game_state.input_locked
+            else "disabled"
+        )
+        for btn in self.tile_buttons:
+            btn.config(state=tools_state)
+
         # active hint: blue circle on puzzle canvas AND on original canvas
         hint_tile = self.game_state.active_hint
         if hint_tile is not None:
@@ -462,6 +505,9 @@ class GUI:
         # completion check
         if self.board.is_solved() and not self.game_state.input_locked:
             self.game_state.lock_input()
+            # input is now locked, so disable the tile tools as well
+            for btn in self.tile_buttons:
+                btn.config(state="disabled")
             messagebox.showinfo("Solved!", "You restored the picture! Load a new image to keep playing.")
 
     # ------------------------------------------------------------------
@@ -510,6 +556,34 @@ class GUI:
             return
 
         tile.apply_flip(horizontal=True)
+        self.game_state.register_move()
+        self.render()
+
+    # ------------------------------------------------------------------
+    # Rotate / flip the currently selected tile (button handlers)
+    # ------------------------------------------------------------------
+
+    def rotate_selected(self, degrees):
+        if self.game_state.input_locked:
+            return
+
+        tile = self.game_state.selected_tile
+        if tile is None:
+            return
+
+        tile.apply_rotation(degrees)
+        self.game_state.register_move()
+        self.render()
+
+    def flip_selected(self, horizontal=False, vertical=False):
+        if self.game_state.input_locked:
+            return
+
+        tile = self.game_state.selected_tile
+        if tile is None:
+            return
+
+        tile.apply_flip(horizontal=horizontal, vertical=vertical)
         self.game_state.register_move()
         self.render()
 
