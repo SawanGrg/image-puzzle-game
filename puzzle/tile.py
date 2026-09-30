@@ -6,7 +6,7 @@ class Tile:
         self._original_image = image.copy()
         self._correct_position = correct_position
         self._current_position = correct_position
-        self.tile_id = tile_id
+        self._tile_id = tile_id
 
         self._rotation = 0
         self._flip_horizontal = False
@@ -33,6 +33,10 @@ class Tile:
 
         if vertical:
             self._flip_vertical = not self._flip_vertical
+
+    @property
+    def tile_id(self):
+        return self._tile_id
 
     def reset(self):
         self._current_position = self._correct_position
