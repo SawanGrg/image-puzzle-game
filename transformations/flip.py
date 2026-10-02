@@ -1,9 +1,14 @@
+#Hit137 Software Now
+#Assessment3 - Image Puzzle Game
+#Riwaj Shrestha (403312)
+#Sawan Gurung (407504)
+#Jung-Chuan Chiang (406089)
+
 import random
 from .base import Transformation
 
 
 class FlipTransformation(Transformation):
-    """Flips one random tile horizontally or vertically."""
 
     def __init__(self):
         super().__init__("flip")

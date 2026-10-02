@@ -4,8 +4,6 @@
 #Sawan Gurung (407504)
 #Jung-Chuan Chiang (406089)
 
-
-
 """Tkinter GUI: welcome, setup and game screens."""
 import random
 import sys
@@ -21,7 +19,6 @@ from puzzle.game_state import GameState
 
 
 class GUI:
-    """Builds the screens and translates user input into Board/GameState calls."""
 
     def __init__(self, root):
         self.root = root
@@ -36,14 +33,11 @@ class GUI:
         self.difficulty = "Easy"
         self._timer_job = None
 
-
         self.board = None
         self.game_state = None
 
-
         self.original_photo = None
         self.puzzle_photo = None
-
 
         self.tile_buttons = []
 
@@ -53,7 +47,6 @@ class GUI:
         self._cancel_timer()
         for widget in self.root.winfo_children():
             widget.destroy()
-
 
 
     def show_welcome_screen(self):
@@ -92,8 +85,6 @@ class GUI:
             cursor="hand2",
             command=self.show_setup_screen
         ).pack()
-
-    
 
     def show_setup_screen(self):
         self.clear_window()
@@ -223,7 +214,6 @@ class GUI:
         ).pack()
 
     def select_image(self):
-        """Open a file dialog and validate the chosen image."""
         file_path = filedialog.askopenfilename(
             title="Select an Image",
             filetypes=[
@@ -235,15 +225,12 @@ class GUI:
         )
 
         if not file_path:
-            return  
+            return  # dialog cancelled
 
         try:
             Board.read_image(file_path)
-        except ValueError:
-            messagebox.showerror(
-                "Invalid Image",
-                "The selected file could not be loaded as an image."
-            )
+        except ValueError as error:
+            messagebox.showerror("Invalid Image", str(error))
             return
 
         self.selected_image = file_path
@@ -254,7 +241,6 @@ class GUI:
         )
 
     def start_game(self):
-        """Create a fresh Board and GameState, then show the game screen."""
         if not self.selected_image:
             messagebox.showwarning(
                 "No Image",
@@ -277,7 +263,6 @@ class GUI:
 
         self.show_game_screen()
 
-    
 
     def show_game_screen(self):
         self.clear_window()
@@ -320,7 +305,7 @@ class GUI:
         boards = tk.Frame(main_frame, bg=Styles.BG)
         boards.pack(expand=True, fill="both")
 
-        
+        # --- original image (left, reference only) ---
         original_section = tk.Frame(
             boards,
             bg=Styles.PANEL,
@@ -348,7 +333,6 @@ class GUI:
         )
         self.original_canvas.pack(padx=20, pady=20)
 
-        
         puzzle_section = tk.Frame(
             boards,
             bg=Styles.PANEL,
@@ -376,12 +360,10 @@ class GUI:
         self.puzzle_canvas.pack(padx=40, pady=20)
 
         self.puzzle_canvas.bind("<Button-1>", self.on_puzzle_click)
-        
         right_button = "<Button-2>" if sys.platform == "darwin" else "<Button-3>"
         self.puzzle_canvas.bind(right_button, self.on_puzzle_right_click)
         self.puzzle_canvas.bind("<Shift-Button-1>", self.on_puzzle_shift_click)
 
-        
         tile_tools = tk.Frame(main_frame, bg=Styles.BG)
         tile_tools.pack(fill="x", pady=(15, 0))
 
@@ -395,10 +377,10 @@ class GUI:
 
         self.tile_buttons = []
         tool_specs = [
-            ("⟲ Rotate Left", lambda: self.rotate_selected(-90)),
-            ("⟳ Rotate Right", lambda: self.rotate_selected(90)),
-            ("⇆ Flip Horizontal", lambda: self.flip_selected(horizontal=True)),
-            ("⇅ Flip Vertical", lambda: self.flip_selected(vertical=True)),
+            (" Rotate Left", lambda: self.rotate_selected(-90)),
+            (" Rotate Right", lambda: self.rotate_selected(90)),
+            (" Flip Horizontal", lambda: self.flip_selected(horizontal=True)),
+            (" Flip Vertical", lambda: self.flip_selected(vertical=True)),
         ]
         for text, command in tool_specs:
             btn = tk.Button(
@@ -412,7 +394,6 @@ class GUI:
             btn.pack(side="left", padx=5)
             self.tile_buttons.append(btn)
 
-        
         controls = tk.Frame(main_frame, bg=Styles.BG)
         controls.pack(fill="x", pady=(20, 0))
 
@@ -434,6 +415,23 @@ class GUI:
         )
         self.solve_button.pack(side="left", padx=5)
 
+        self.swap_button = tk.Button(
+            controls,
+            text="⇄ Swap Tiles",
+            font=Styles.BUTTON_FONT,
+            width=Styles.BUTTON_WIDTH,
+            command=self.toggle_swap_mode
+        )
+        self.swap_button.pack(side="left", padx=5)
+
+        self.status_label = tk.Label(
+            controls,
+            text="",
+            font=Styles.LABEL_FONT,
+            bg=Styles.BG,
+            fg=Styles.ACCENT
+        )
+        self.status_label.pack(side="left", padx=15)
 
         tk.Button(
             controls,
@@ -446,7 +444,6 @@ class GUI:
         self.render()
         self._tick()
 
-    
 
     def _cancel_timer(self):
         if self._timer_job is not None:
@@ -465,7 +462,6 @@ class GUI:
             self.timer_label.config(text=f"Time left: {self._format_time(state.time_left)}")
 
     def _tick(self):
-        """Refresh the clock a few times per second until the round ends."""
         self._timer_job = None
         self._update_timer_label()
 
@@ -484,10 +480,8 @@ class GUI:
 
         self._timer_job = self.root.after(250, self._tick)
 
-    
 
     def _cell_rect(self, position):
-        """Pixel rectangle (x0, y0, x1, y1) for a grid position index."""
         row = position // self.board.grid_size
         col = position % self.board.grid_size
         x0 = col * self.board.tile_width
@@ -501,30 +495,24 @@ class GUI:
         pil_image = Image.fromarray(rgb)
         return ImageTk.PhotoImage(pil_image)
 
-    
-
     def render(self):
         grid_size = self.board.grid_size
         state = self.game_state
-
 
         self.original_canvas.delete("all")
         self.original_photo = self._cv2_to_photo(self.board.original_image)
         self.original_canvas.create_image(0, 0, anchor="nw", image=self.original_photo)
 
-        
         self.puzzle_canvas.delete("all")
         self.puzzle_photo = self._cv2_to_photo(self.board.reassemble())
         self.puzzle_canvas.create_image(0, 0, anchor="nw", image=self.puzzle_photo)
 
-        
         for i in range(1, grid_size):
             x = i * self.board.tile_width
             y = i * self.board.tile_height
             self.puzzle_canvas.create_line(x, 0, x, self.board.original_image.shape[0], fill="#cccccc")
             self.puzzle_canvas.create_line(0, y, self.board.original_image.shape[1], y, fill="#cccccc")
 
-        
         for tile in self.board.tiles:
             if tile.is_correct():
                 x0, y0, _, _ = self._cell_rect(tile.current_position)
@@ -535,7 +523,6 @@ class GUI:
                     font=("Arial", 14, "bold")
                 )
 
-        
         selected = state.selected_tile
         if selected is not None:
             x0, y0, x1, y1 = self._cell_rect(selected.current_position)
@@ -544,7 +531,6 @@ class GUI:
                 outline="#3498db", width=3
             )
 
-        
         tools_state = (
             "normal"
             if selected is not None and not state.input_locked
@@ -553,7 +539,6 @@ class GUI:
         for btn in self.tile_buttons:
             btn.config(state=tools_state)
 
-        
         hint_tile = state.active_hint
         if hint_tile is not None:
             px0, py0, px1, py1 = self._cell_rect(hint_tile.current_position)
@@ -564,17 +549,28 @@ class GUI:
             ocx, ocy = (ox0 + ox1) / 2, (oy0 + oy1) / 2
             self.original_canvas.create_oval(ocx - 10, ocy - 10, ocx + 10, ocy + 10, outline="#2980ff", width=3)
 
-        
         self.moves_label.config(text=f"Moves: {state.moves}")
         self.tiles_left_label.config(text=f"Tiles Incorrect: {self.board.incorrect_count()}")
-        
+
+        self.swap_button.config(
+            text="✕ Cancel Swap" if state.swap_mode else "⇄ Swap Tiles",
+            state="disabled" if state.input_locked else "normal"
+        )
+        if state.swap_mode and not state.input_locked:
+            self.status_label.config(
+                text="Click the first tile" if selected is None
+                else "Now click the tile to swap with"
+            )
+        else:
+            self.status_label.config(text="")
+
         self._refresh_action_buttons()
 
-        
+        # completion check
         if self.board.is_solved() and not state.input_locked:
             state.lock_input()
             self._update_timer_label()
-            self.render()  
+            self.render()  # redraw so every button shows its locked state
             messagebox.showinfo(
                 "Solved!",
                 f"You restored the picture in {state.moves} moves "
@@ -590,16 +586,13 @@ class GUI:
         self.hint_button.config(state="normal" if hint_ok else "disabled")
         self.solve_button.config(state="normal" if playing else "disabled")
 
-
-
     def on_puzzle_click(self, event):
-        """Left click: select, deselect, or swap with the selected tile."""
         if self.game_state.input_locked:
             return
 
         tile = self.board.get_tile_at(event.x, event.y)
         if tile is None:
-            return  
+            return 
 
         selected = self.game_state.selected_tile
 
@@ -610,12 +603,12 @@ class GUI:
         else:
             self.board.swap(selected, tile)
             self.game_state.clear_selection()
+            self.game_state.end_swap_mode()
             self.game_state.register_move()
 
         self.render()
 
     def on_puzzle_right_click(self, event):
-        """Right click: rotate the tile 90 degrees clockwise."""
         if self.game_state.input_locked:
             return
 
@@ -628,7 +621,6 @@ class GUI:
         self.render()
 
     def on_puzzle_shift_click(self, event):
-        """Shift + left click: flip the tile horizontally."""
         if self.game_state.input_locked:
             return
 
@@ -640,6 +632,11 @@ class GUI:
         self.game_state.register_move()
         self.render()
 
+    def toggle_swap_mode(self):
+        if self.game_state.input_locked:
+            return
+        self.game_state.toggle_swap_mode()
+        self.render()
 
     def rotate_selected(self, degrees):
         if self.game_state.input_locked:
@@ -666,7 +663,6 @@ class GUI:
         self.render()
 
     def show_hint(self):
-        """Mark one incorrect tile (and its home position) with a blue circle."""
         if self.game_state.input_locked or not self.game_state.has_hints_left():
             return
 
@@ -679,13 +675,13 @@ class GUI:
         self.render()
 
     def solve_puzzle(self):
-        """Undo all transformations, clear moves, and lock input."""
         if self.game_state.input_locked or self.board.is_solved():
             return
 
         self.board.solve()
         self.game_state.reset_moves()
         self.game_state.clear_selection()
+        self.game_state.end_swap_mode()
         self.game_state.clear_hint()
         self.game_state.lock_input()
         self.render()

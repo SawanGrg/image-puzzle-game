@@ -4,6 +4,7 @@
 #Sawan Gurung (407504)
 #Jung-Chuan Chiang (406089)
 
+import os
 import random
 import cv2
 import numpy as np
@@ -13,10 +14,17 @@ from transformations.swap import SwapTransformation
 from transformations.rotate import RotateTransformation
 from transformations.flip import FlipTransformation
 
-
 class Board:
 
+    SUPPORTED_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp")
+
+    TRANSFORMATIONS_PER_GRID = {3: 6, 4: 12, 5: 20}
+
     def __init__(self, grid_size: int):
+        if grid_size not in self.TRANSFORMATIONS_PER_GRID:
+            raise ValueError(
+                f"Grid size must be one of {sorted(self.TRANSFORMATIONS_PER_GRID)}, got {grid_size}"
+            )
         self.grid_size = grid_size
         self.tiles = []
         self.original_image = None
@@ -25,18 +33,22 @@ class Board:
         self.transformation_history = []
 
     @staticmethod
-    def read_image(path: str):
-        """Read an image file (JPG/PNG/BMP) and return it, or raise ValueError.
+    def is_supported_image(path: str) -> bool:
+        return os.path.splitext(path)[1].lower() in Board.SUPPORTED_EXTENSIONS
 
-        cv2.imread cannot open paths with non-ASCII characters on Windows,
-        so we read the bytes with numpy and decode them.
-        """
+    @staticmethod
+    def read_image(path: str):
+        if not Board.is_supported_image(path):
+            raise ValueError(
+                "Unsupported file type. Please choose a JPG, PNG or BMP image."
+            )
+
         try:
             data = np.fromfile(path, dtype=np.uint8)
-        except OSError as error:
+            image = cv2.imdecode(data, cv2.IMREAD_COLOR) if data.size else None
+        except (OSError, cv2.error) as error:
             raise ValueError(f"Could not open {path}: {error}") from error
 
-        image = cv2.imdecode(data, cv2.IMREAD_COLOR) if data.size else None
         if image is None:
             raise ValueError(f"Could not read image at {path}")
         return image
@@ -48,7 +60,6 @@ class Board:
         self._slice_into_tiles(image)
 
     def _resize_and_crop(self, image, target_size: int):
-        """Centre-crop to a square, then resize so it divides evenly into the grid."""
         h, w = image.shape[:2]
         side = min(h, w)
         y0, x0 = (h - side) // 2, (w - side) // 2
@@ -78,7 +89,7 @@ class Board:
                 tile_id += 1
 
     def scramble(self):
-        total_moves = {3: 6, 4: 12, 5: 20}[self.grid_size]
+        total_moves = self.TRANSFORMATIONS_PER_GRID[self.grid_size]
         total_tiles = self.grid_size * self.grid_size
 
         max_swaps = min(total_tiles - total_moves, total_moves - 2)

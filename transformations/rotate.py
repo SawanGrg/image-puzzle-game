@@ -1,9 +1,14 @@
+#Hit137 Software Now
+#Assessment3 - Image Puzzle Game
+#Riwaj Shrestha (403312)
+#Sawan Gurung (407504)
+#Jung-Chuan Chiang (406089)
+
 import random
 from .base import Transformation
 
 
 class RotateTransformation(Transformation):
-    """Rotates one random tile by 90, 180 or 270 degrees."""
 
     def __init__(self):
         super().__init__("rotate")

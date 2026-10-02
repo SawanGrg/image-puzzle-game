@@ -4,19 +4,13 @@
 #Sawan Gurung (407504)
 #Jung-Chuan Chiang (406089)
 
-
-
-
-"""Round state: moves, selection, hints, swap mode, timer and input lock."""
 import time
 
 
 class GameState:
-    """Tracks everything about the current round except the tiles themselves."""
 
     MAX_HINTS = 3
 
-    
     DIFFICULTY_LIMITS = {"Easy": None, "Medium": 300, "Hard": 180}
 
     def __init__(self, time_limit=None):
@@ -26,25 +20,20 @@ class GameState:
         self._moves = 0
         self._hints_used = 0
         self._selected_tile = None
+        self._swap_mode = False
         self._input_locked = False
-        self._active_hint = None  
-
-    
+        self._active_hint = None
 
     @property
     def moves(self):
         return self._moves
 
     def reset_moves(self):
-        """Clear the move counter (used by Solve)."""
         self._moves = 0
 
     def register_move(self):
-        """Call once for every swap, rotate, or flip the player makes."""
         self._moves += 1
         self.clear_hint()
-
-    
 
     @property
     def selected_tile(self):
@@ -59,7 +48,18 @@ class GameState:
     def is_selected(self, tile):
         return self._selected_tile is tile
 
-    
+    @property
+    def swap_mode(self):
+        return self._swap_mode
+
+    def toggle_swap_mode(self):
+        self._swap_mode = not self._swap_mode
+        if not self._swap_mode:
+            self._selected_tile = None
+
+    def end_swap_mode(self):
+        self._swap_mode = False
+
     @property
     def hints_used(self):
         return self._hints_used
@@ -72,7 +72,6 @@ class GameState:
         return self._hints_used < self.MAX_HINTS
 
     def use_hint(self, tile):
-        """Record a hint on `tile`. Returns False if no hints are left."""
         if not self.has_hints_left():
             return False
 
@@ -82,20 +81,16 @@ class GameState:
 
     @property
     def active_hint(self):
-        """The tile currently marked with a blue hint circle, or None."""
         return self._active_hint
 
     def clear_hint(self):
         self._active_hint = None
-
-    
 
     @property
     def input_locked(self):
         return self._input_locked
 
     def lock_input(self):
-        """Stop accepting puzzle input and freeze the timer."""
         self._input_locked = True
         self.stop_timer()
 
@@ -104,7 +99,6 @@ class GameState:
 
     @property
     def elapsed(self):
-        """Whole seconds played (freezes once the round ends)."""
         end = self._end_time if self._end_time is not None else time.monotonic()
         return int(end - self._start_time)
 
@@ -126,13 +120,11 @@ class GameState:
         if self._end_time is None:
             self._end_time = time.monotonic()
 
-    
-
     def reset(self):
-        """Reset everything for a fresh round."""
         self._moves = 0
         self._hints_used = 0
         self._selected_tile = None
+        self._swap_mode = False
         self._input_locked = False
         self._active_hint = None
         self._start_time = time.monotonic()
