@@ -3,18 +3,19 @@ from .base import Transformation
 
 
 class RotateTransformation(Transformation):
+    """Rotates one random tile by 90, 180 or 270 degrees."""
 
     def __init__(self):
         super().__init__("rotate")
-        self.tile = None
-        self.degrees = 0
+        self._tile = None
+        self._degrees = 0
 
     def apply(self, tiles: list):
-        self.tile = random.choice(tiles)
-        self.degrees = random.choice([90, 180, 270])
-        self.tile.apply_rotation(self.degrees)
-        return self.tile
+        self._tile = random.choice(tiles)
+        self._degrees = random.choice([90, 180, 270])
+        self._tile.apply_rotation(self._degrees)
+        return self._tile
 
     def undo(self):
-        if self.tile and self.degrees != 0:
-            self.tile.apply_rotation(-self.degrees)
+        if self._tile and self._degrees != 0:
+            self._tile.apply_rotation(-self._degrees)

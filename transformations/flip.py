@@ -3,26 +3,25 @@ from .base import Transformation
 
 
 class FlipTransformation(Transformation):
+    """Flips one random tile horizontally or vertically."""
 
     def __init__(self):
         super().__init__("flip")
-        self.tile = None
-        self.is_vertical = False
+        self._tile = None
+        self._is_vertical = False
 
     def apply(self, tiles: list):
-        self.tile = random.choice(tiles)
-        self.is_vertical = random.choice([True, False])
-
-        if self.is_vertical:
-            self.tile.apply_flip(vertical=True)
-        else:
-            self.tile.apply_flip(horizontal=True)
-
-        return self.tile
+        self._tile = random.choice(tiles)
+        self._is_vertical = random.choice([True, False])
+        self._flip()
+        return self._tile
 
     def undo(self):
-        if self.tile:
-            if self.is_vertical:
-                self.tile.apply_flip(vertical=True)
-            else:
-                self.tile.apply_flip(horizontal=True)
+        if self._tile:
+            self._flip()  # flipping twice restores the tile
+
+    def _flip(self):
+        if self._is_vertical:
+            self._tile.apply_flip(vertical=True)
+        else:
+            self._tile.apply_flip(horizontal=True)

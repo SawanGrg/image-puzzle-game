@@ -21,6 +21,8 @@ class GUI:
 
         self.selected_image = None
         self.grid_size = 3
+        self.difficulty = "Easy"
+        self._timer_job = None
 
         # created once "Start Puzzle" is pressed
         self.board = None
@@ -36,6 +38,7 @@ class GUI:
         self.show_welcome_screen()
 
     def clear_window(self):
+        self._cancel_timer()
         for widget in self.root.winfo_children():
             widget.destroy()
 
@@ -127,6 +130,8 @@ class GUI:
             fg=Styles.MUTED
         )
         self.image_label.pack(pady=(0, 15))
+        if self.selected_image:
+            self.image_label.config(text=self.selected_image, fg=Styles.SUCCESS)
 
         browse_button = tk.Button(
             image_section,
@@ -149,7 +154,7 @@ class GUI:
         )
         grid_title.pack(pady=(0, 10))
 
-        self.grid_var = tk.IntVar(value=3)
+        self.grid_var = tk.IntVar(value=self.grid_size)
 
         options = tk.Frame(grid_section, bg=Styles.BG)
         options.pack()
@@ -167,6 +172,34 @@ class GUI:
                 selectcolor=Styles.PANEL
             )
             radio.pack(side="left", padx=15)
+
+        difficulty_section = tk.Frame(container, bg=Styles.BG)
+        difficulty_section.pack(pady=(0, 20))
+
+        tk.Label(
+            difficulty_section,
+            text="Select Difficulty",
+            font=Styles.HEADING_FONT,
+            bg=Styles.BG,
+            fg=Styles.TEXT
+        ).pack(pady=(0, 10))
+
+        self.difficulty_var = tk.StringVar(value=self.difficulty)
+        difficulty_text = {"Easy": "Easy (no time limit)",
+                           "Medium": "Medium (5 min)",
+                           "Hard": "Hard (3 min)"}
+        for level in GameState.DIFFICULTY_LIMITS:
+            tk.Radiobutton(
+                difficulty_section,
+                text=difficulty_text[level],
+                variable=self.difficulty_var,
+                value=level,
+                font=Styles.LABEL_FONT,
+                bg=Styles.BG,
+                fg=Styles.TEXT,
+                activebackground=Styles.BG,
+                selectcolor=Styles.PANEL
+            ).pack(side="left", padx=15)
 
         start_button = tk.Button(
             container,
@@ -189,7 +222,7 @@ class GUI:
             relief="flat",
             command=self.show_welcome_screen
         )
-        back_button.pack()
+        back_button.pack()  
 
     def select_image(self):
         file_path = filedialog.askopenfilename(
@@ -205,9 +238,9 @@ class GUI:
         if not file_path:
             return
 
-        image = cv2.imread(file_path)
-
-        if image is None:
+        try:
+            Board.read_image(file_path)
+        except ValueError:
             messagebox.showerror(
                 "Invalid Image",
                 "The selected file could not be loaded as an image."
@@ -239,7 +272,8 @@ class GUI:
             messagebox.showerror("Could not load image", str(e))
             return
 
-        self.game_state = GameState()
+        self.difficulty = self.difficulty_var.get()
+        self.game_state = GameState(GameState.DIFFICULTY_LIMITS[self.difficulty])
 
         self.show_game_screen()
 
@@ -285,6 +319,15 @@ class GUI:
             fg=Styles.TEXT
         )
         self.tiles_left_label.pack(side="left", padx=10)
+        
+        self.timer_label = tk.Label(
+            stats,
+            text="Time: 00:00",
+            font=Styles.LABEL_FONT,
+            bg=Styles.BG,
+            fg=Styles.TEXT
+        )
+        self.timer_label.pack(side="left", padx=10)
 
         boards = tk.Frame(main_frame, bg=Styles.BG)
         boards.pack(expand=True, fill="both")
@@ -390,14 +433,14 @@ class GUI:
         )
         self.hint_button.pack(side="left", padx=5)
 
-        solve_button = tk.Button(
+        self.solve_button = tk.Button(
             controls,
             text="Solve",
             font=Styles.BUTTON_FONT,
             width=Styles.BUTTON_WIDTH,
             command=self.solve_puzzle
         )
-        solve_button.pack(side="left", padx=5)
+        self.solve_button.pack(side="left", padx=5)
 
         load_button = tk.Button(
             controls,
@@ -409,6 +452,44 @@ class GUI:
         load_button.pack(side="right", padx=5)
 
         self.render()
+        self._tick()
+
+
+    def _cancel_timer(self):
+        if self._timer_job is not None:
+            self.root.after_cancel(self._timer_job)
+            self._timer_job = None
+
+    @staticmethod
+    def _format_time(seconds):
+        return f"{seconds // 60:02d}:{seconds % 60:02d}"
+
+    def _update_timer_label(self):
+        state = self.game_state
+        if state.time_left is None:
+            self.timer_label.config(text=f"Time: {self._format_time(state.elapsed)}")
+        else:
+            self.timer_label.config(text=f"Time left: {self._format_time(state.time_left)}")
+
+    def _tick(self):
+        """Refresh the clock a few times per second until the round ends."""
+        self._timer_job = None
+        self._update_timer_label()
+
+        if self.game_state.input_locked:
+            return
+
+        if self.game_state.is_time_up:
+            self.game_state.lock_input()
+            self.render()
+            messagebox.showinfo(
+                "Time's up!",
+                "You ran out of time. Load a new image to try again.",
+                parent=self.root,
+            )
+            return
+
+        self._timer_job = self.root.after(250, self._tick)
 
     # ------------------------------------------------------------------
     # Coordinate <-> tile helpers
@@ -493,24 +574,31 @@ class GUI:
             ocx, ocy = (ox0 + ox1) / 2, (oy0 + oy1) / 2
             self.original_canvas.create_oval(ocx - 10, ocy - 10, ocx + 10, ocy + 10, outline="#2980ff", width=3)
 
-        # counters
+         # counters
         self.moves_label.config(text=f"Moves: {self.game_state.moves}")
         self.tiles_left_label.config(text=f"Tiles Incorrect: {self.board.incorrect_count()}")
-
-        # hint button state
-        if self.game_state.has_hints_left():
-            self.hint_button.config(state="normal")
-        else:
-            self.hint_button.config(state="disabled")
 
         # completion check
         if self.board.is_solved() and not self.game_state.input_locked:
             self.game_state.lock_input()
+            self._refresh_action_buttons()
             # input is now locked, so disable the tile tools as well
             for btn in self.tile_buttons:
                 btn.config(state="disabled")
-            messagebox.showinfo("Solved!", "You restored the picture! Load a new image to keep playing.",parent=self.root) 
-
+            self._update_timer_label()
+            messagebox.showinfo(
+                "Solved!",
+                f"You restored the picture in {self.game_state.moves} moves "
+                f"({self._format_time(self.game_state.elapsed)}). "
+                "Load a new image to keep playing.",
+                parent=self.root,
+            )
+    def _refresh_action_buttons(self):
+        """Hint/Solve only work while the round is still running."""
+        playing = not self.game_state.input_locked
+        hint_ok = playing and self.game_state.has_hints_left()
+        self.hint_button.config(state="normal" if hint_ok else "disabled")
+        self.solve_button.config(state="normal" if playing else "disabled")
     # ------------------------------------------------------------------
     # Click handling
     # ------------------------------------------------------------------
@@ -609,6 +697,9 @@ class GUI:
             return
 
         self.board.solve()
+        self.game_state.reset_moves()      # spec: Solve clears moves and score
+        self.game_state.clear_selection()
+        self.game_state.clear_hint()
         self.game_state.lock_input()
         self.render()
 

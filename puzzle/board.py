@@ -1,5 +1,6 @@
 import random
 import cv2
+import numpy as np
 
 from puzzle.tile import Tile
 from transformations.swap import SwapTransformation
@@ -17,39 +18,40 @@ class Board:
         self.tile_height = 0
         self.transformation_history = []
 
-    def load_image(self, path: str, target_size: int = 360):
-        image = cv2.imread(path)
+    @staticmethod
+    def read_image(path: str):
+        """Read an image file (JPG/PNG/BMP) and return it, or raise ValueError.
+
+        cv2.imread cannot open paths with non-ASCII characters on Windows,
+        so we read the bytes with numpy and decode them.
+        """
+        try:
+            data = np.fromfile(path, dtype=np.uint8)
+        except OSError as error:
+            raise ValueError(f"Could not open {path}: {error}") from error
+
+        image = cv2.imdecode(data, cv2.IMREAD_COLOR) if data.size else None
         if image is None:
             raise ValueError(f"Could not read image at {path}")
+        return image
 
-        image = self._resize_and_pad(image, target_size)
+    def load_image(self, path: str, target_size: int = 360):
+        image = self.read_image(path)
+        image = self._resize_and_crop(image, target_size)
         self.original_image = image
         self._slice_into_tiles(image)
 
-    def _resize_and_pad(self, image, target_size: int):
+    def _resize_and_crop(self, image, target_size: int):
+        """Centre-crop to a square, then resize so it divides evenly into the grid."""
         h, w = image.shape[:2]
-        scale = target_size / max(h, w)
-        new_w, new_h = int(w * scale), int(h * scale)
-        resized = cv2.resize(image, (new_w, new_h))
-
-        delta_w = target_size - new_w
-        delta_h = target_size - new_h
-        top, bottom = delta_h // 2, delta_h - (delta_h // 2)
-        left, right = delta_w // 2, delta_w - (delta_w // 2)
-
-        square_img = cv2.copyMakeBorder(
-            resized,
-            top,
-            bottom,
-            left,
-            right,
-            cv2.BORDER_CONSTANT,
-            value=[0, 0, 0],
-        )
+        side = min(h, w)
+        y0, x0 = (h - side) // 2, (w - side) // 2
+        square = image[y0 : y0 + side, x0 : x0 + side]
 
         tile_dim = target_size // self.grid_size
         final_dim = tile_dim * self.grid_size
-        return square_img[:final_dim, :final_dim]
+        interpolation = cv2.INTER_AREA if side > final_dim else cv2.INTER_CUBIC
+        return cv2.resize(square, (final_dim, final_dim), interpolation=interpolation)
 
     def _slice_into_tiles(self, image):
         h, w = image.shape[:2]

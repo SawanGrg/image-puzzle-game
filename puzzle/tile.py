@@ -8,9 +8,16 @@ class Tile:
         self._current_position = correct_position
         self._tile_id = tile_id
 
-        self._rotation = 0
-        self._flip_horizontal = False
-        self._flip_vertical = False
+        self._rotation = 0        
+        self._mirrored = False
+
+    @property
+    def rotation(self):
+        return self._rotation
+
+    @property
+    def is_mirrored(self):
+        return self._mirrored
 
     @property
     def current_position(self):
@@ -28,11 +35,17 @@ class Tile:
         self._rotation = (self._rotation + degrees) % 360
 
     def apply_flip(self, horizontal=False, vertical=False):
+
         if horizontal:
-            self._flip_horizontal = not self._flip_horizontal
+            self._flip_displayed_horizontally()
 
         if vertical:
-            self._flip_vertical = not self._flip_vertical
+            self._flip_displayed_horizontally()
+            self.apply_rotation(180)
+
+    def _flip_displayed_horizontally(self):
+        self._mirrored = not self._mirrored
+        self._rotation = (-self._rotation) % 360
 
     @property
     def tile_id(self):
@@ -41,17 +54,13 @@ class Tile:
     def reset(self):
         self._current_position = self._correct_position
         self._rotation = 0
-        self._flip_horizontal = False
-        self._flip_vertical = False
+        self._mirrored = False
 
     def get_display_image(self):
         image = self._original_image
 
-        if self._flip_horizontal:
+        if self._mirrored:
             image = cv2.flip(image, 1)
-
-        if self._flip_vertical:
-            image = cv2.flip(image, 0)
 
         if self._rotation == 90:
             image = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
@@ -66,6 +75,5 @@ class Tile:
         return (
             self._current_position == self._correct_position
             and self._rotation == 0
-            and not self._flip_horizontal
-            and not self._flip_vertical
+            and not self._mirrored
         )

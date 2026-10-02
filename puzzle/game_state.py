@@ -1,7 +1,15 @@
+import time
+
 class GameState:
     MAX_HINTS = 3
 
-    def __init__(self):
+    # difficulty name -> time limit in seconds (None = no limit)
+    DIFFICULTY_LIMITS = {"Easy": None, "Medium": 300, "Hard": 180}
+
+    def __init__(self, time_limit=None):
+        self._time_limit = time_limit
+        self._start_time = time.monotonic()
+        self._end_time = None
         self._moves = 0
         self._hints_used = 0
         self._selected_tile = None
@@ -15,6 +23,10 @@ class GameState:
     @property
     def moves(self):
         return self._moves
+
+    def reset_moves(self):
+        """Clear the move counter (used by Solve)."""
+        self._moves = 0
 
     def register_move(self):
         """Call this once for every swap, rotate, or flip the player makes."""
@@ -86,10 +98,34 @@ class GameState:
 
     def lock_input(self):
         self._input_locked = True
+        self.stop_timer()
 
     def unlock_input(self):
         self._input_locked = False
 
+    @property
+    def elapsed(self):
+        """Whole seconds played (freezes once the round ends)."""
+        end = self._end_time if self._end_time is not None else time.monotonic()
+        return int(end - self._start_time)
+
+    @property
+    def time_limit(self):
+        return self._time_limit
+
+    @property
+    def time_left(self):
+        if self._time_limit is None:
+            return None
+        return max(0, self._time_limit - self.elapsed)
+
+    @property
+    def is_time_up(self):
+        return self._time_limit is not None and self.elapsed >= self._time_limit
+
+    def stop_timer(self):
+        if self._end_time is None:
+            self._end_time = time.monotonic()
     # ------------------------------------------------------------------
     # Reset (new image loaded, or Solve pressed)
     # ------------------------------------------------------------------
@@ -100,3 +136,5 @@ class GameState:
         self._selected_tile = None
         self._input_locked = False
         self._active_hint = None
+        self._start_time = time.monotonic()
+        self._end_time = None
