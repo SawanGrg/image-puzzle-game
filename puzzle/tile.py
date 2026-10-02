@@ -10,14 +10,7 @@ class Tile:
 
         self._rotation = 0        
         self._mirrored = False
-
-    @property
-    def rotation(self):
-        return self._rotation
-
-    @property
-    def is_mirrored(self):
-        return self._mirrored
+        
 
     @property
     def current_position(self):

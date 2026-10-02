@@ -18,7 +18,7 @@ class FlipTransformation(Transformation):
 
     def undo(self):
         if self._tile:
-            self._flip()  # flipping twice restores the tile
+            self._flip()  
 
     def _flip(self):
         if self._is_vertical:

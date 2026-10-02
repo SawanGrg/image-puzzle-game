@@ -1,3 +1,12 @@
+#Hit137 Software Now
+#Assessment3 - Image Puzzle Game
+#Riwaj Shrestha (403312)
+#Sawan Gurung (407504)
+#Jung-Chuan Chiang (406089)
+
+
+
+
 """Round state: moves, selection, hints, swap mode, timer and input lock."""
 import time
 
@@ -7,7 +16,7 @@ class GameState:
 
     MAX_HINTS = 3
 
-    # difficulty name -> time limit in seconds (None = no limit)
+    
     DIFFICULTY_LIMITS = {"Easy": None, "Medium": 300, "Hard": 180}
 
     def __init__(self, time_limit=None):
@@ -17,13 +26,10 @@ class GameState:
         self._moves = 0
         self._hints_used = 0
         self._selected_tile = None
-        self._swap_mode = False
         self._input_locked = False
-        self._active_hint = None  # tile currently showing a blue hint circle
+        self._active_hint = None  
 
-    # ------------------------------------------------------------------
-    # Moves
-    # ------------------------------------------------------------------
+    
 
     @property
     def moves(self):
@@ -36,12 +42,9 @@ class GameState:
     def register_move(self):
         """Call once for every swap, rotate, or flip the player makes."""
         self._moves += 1
-        # hint circle disappears after the NEXT move
         self.clear_hint()
 
-    # ------------------------------------------------------------------
-    # Tile selection and swap mode
-    # ------------------------------------------------------------------
+    
 
     @property
     def selected_tile(self):
@@ -56,25 +59,7 @@ class GameState:
     def is_selected(self, tile):
         return self._selected_tile is tile
 
-    @property
-    def swap_mode(self):
-        """True while the Swap Tiles button's explicit swap mode is active."""
-        return self._swap_mode
-
-    def toggle_swap_mode(self):
-        """Turn swap mode on/off; turning it off also clears the selection."""
-        self._swap_mode = not self._swap_mode
-        if not self._swap_mode:
-            self._selected_tile = None
-
-    def end_swap_mode(self):
-        """Leave swap mode (called once a swap has been completed)."""
-        self._swap_mode = False
-
-    # ------------------------------------------------------------------
-    # Hints
-    # ------------------------------------------------------------------
-
+    
     @property
     def hints_used(self):
         return self._hints_used
@@ -103,9 +88,7 @@ class GameState:
     def clear_hint(self):
         self._active_hint = None
 
-    # ------------------------------------------------------------------
-    # Completion / lock / timer
-    # ------------------------------------------------------------------
+    
 
     @property
     def input_locked(self):
@@ -143,16 +126,13 @@ class GameState:
         if self._end_time is None:
             self._end_time = time.monotonic()
 
-    # ------------------------------------------------------------------
-    # Reset
-    # ------------------------------------------------------------------
+    
 
     def reset(self):
         """Reset everything for a fresh round."""
         self._moves = 0
         self._hints_used = 0
         self._selected_tile = None
-        self._swap_mode = False
         self._input_locked = False
         self._active_hint = None
         self._start_time = time.monotonic()
